@@ -14,6 +14,9 @@ from data_source import get_fred_rate
 from data_source import get_dxy
 from data_source import get_us10y
 from data_source import get_pmi
+from data_source import get_copper
+from data_source import get_iron
+from data_source import get_nickel
 
 # ============================================================================================================
 # STREAMLIT CONFIG
@@ -49,9 +52,84 @@ def get_latest_metric(data):
     change = current - previous
     return current, previous, change
 
+
+# ============================================================================================================
+# Global Manufacturing Overview
+# ============================================================================================================
+
+st.subheader("🌍 Global Manufacturing Overview")
+
+china_pmi = get_pmi("China")
+china_pmi["Date"] = pd.to_datetime(china_pmi["Date"])
+
+us_pmi = get_pmi("US")
+us_pmi["Date"] = pd.to_datetime(us_pmi["Date"])
+
+current_china_pmi, _, _ = get_latest_metric(china_pmi["Value"])
+current_us_pmi, _, _ = get_latest_metric(us_pmi["Value"])
+
+if current_china_pmi > 50 and current_us_pmi > 50:
+    overall_status = "🟢 Global Expansion"
+elif current_china_pmi < 50 and current_us_pmi < 50:
+    overal_status = "🔴 Global Contraction"
+else:
+    overall_status = "🟡 Mixed Condition"
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(
+        "China PMI",
+        current_china_pmi
+    )
+
+with col2:
+    st.metric(
+        "US PMI",
+        current_us_pmi
+    )
+
+with col3:
+    st.metric(
+        "Overall Status",
+        overall_status
+    )
+
+st.subheader("Current Assessment")
+
+if overall_status == "🟢 Global Expansion":
+    st.successes(
+        """
+        ## Aktifitas Manufaktur Global Sedang Menguat
+
+        China dan Amerika sama-sama berada pada fase ekspansi. Kondisi ini menunjukkan aktivitas manufaktur global sedang bertumbuh dan mencerminkan permintaan yang relatif sehat terhadap barang dan aktivitas industri.
+        Investor dapat memantau perkembangan ini sebagai sinyal awal bahwa momentum pertumbuhan ekonomi global masih terjaga.
+        """
+    )
+
+elif overall_status == "🟢 Global Contraction":
+    st.warning(
+        """
+        ## Aktivitas Manufaktur Global Sedang Melemah
+
+        PMI China dan Amerika Serikat sama-sama berada di bawah level 50, yang menunjukkan aktivitas manufaktur global sedang berada dalam fase kontraksi. Kondisi ini mengindikasikan bahwa permintaan industri masih lemah dan pemulihan ekonomi global belum terbentuk secara menyeluruh.
+        Investor sebaiknya meningkatkan kewaspadaan terhadap perlambatan ekonomi global dan menunggu konfirmasi dari indikator makro lainnya sebelum mengambil keputusan investasi yang lebih agresif.
+        """
+)
+
+else:
+    st.info(
+        """
+        ## Pemulihan Manufaktur Global Belum Merata
+
+        China dan Amerika menunjukkan arah yang berbeda. Kondisi ini mengindikasikan bahwa aktivitas manufaktur global masih berada dalam fase transisi dan belum menunjukkan tren yang seragam.
+        Investor sebaiknya menunggu konfirmasi dari data ekonomi berikutnya sebelum menyimpulkan arah pertumbuhan manufaktur dunia.
+        """
+)
+    
 # ============================================================================================================
 # FED RATE
-# ============================================================================================================
+# =======================================================Í=====================================================
 
 st.subheader("🏦 Fed Rate")
 
@@ -520,7 +598,6 @@ else:
 
 st.caption("Source: National Bureau of Statistics (NBS)")
 
-
 # ============================================================================================================
 # US PMI
 # ============================================================================================================
@@ -654,3 +731,258 @@ else:
     )
 
 st.caption("Source: Institute for Supply Management (ISM)")
+
+# ============================================================================================================
+# Copper
+# ============================================================================================================
+
+st.divider()
+st.subheader("🟠 Copper Futures")
+
+copper_price = get_copper()
+
+current_copper, previous_copper, copper_change = get_latest_metric(copper_price)
+peak_copper = float(copper_price.max())
+copper_trend = get_trend(copper_change)
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric(
+        "Current Copper",
+        f"{current_copper:.2f}"
+    )
+
+with col2:
+    st.metric(
+        "Peak Copper (5Y)",
+        f"{peak_copper:.2f}"
+    )
+
+with col3:
+    st.metric(
+        "Last Change",
+        f"{copper_change:.2f}"
+    )
+
+with col4:
+    st.metric(
+        "Trend",
+        copper_trend
+    )
+
+fig_copper = go.Figure()
+
+fig_copper.add_trace(
+    go.Scatter(
+        x=copper_price.index,
+        y=copper_price,
+        mode="lines",
+        name="Copper"
+    )
+)
+
+fig_copper.update_layout(
+    template="plotly_dark",
+    height=500,
+    xaxis_title="Date",
+    yaxis_title="Price (USD/lb)",
+    margin=dict(
+        l=20,
+        r=20,
+        t=20,
+        b=20
+    )
+)
+
+st.plotly_chart(
+    fig_copper,
+    use_container_width=True
+)
+   
+st.subheader("Current Assessment")
+if copper_change < 0:
+    st.success(
+        """
+        ## Permintaan Copper Sedang Menguat
+
+        Harga Copper mengalami kenaikan yang menunjukkan meningkatnya permintaan terhadap logam industri. Kondisi ini biasanya terjadi ketika aktivitas manufaktur, pembangunan infrastruktur, dan investasi sedang bertumbuh.
+        Copper sering dijadikan indikator awal kesehatan ekonomi global karena penggunaannya yang sangat luas di berbagai sektor industri.
+
+        **Fokus Investor Saat Ini:**
+        - Konfirmasi dari China Manufacturing PMI.
+        - Tren permintaan industri global.
+        - Prospek sektor pertambangan dan logam.
+        """
+    )
+elif copper_change > 0:
+    st.warning(
+        """
+        ## Permintaan Copper Mulai Melemah
+
+        Harga Copper mengalami penurunan yang mengindikasikan melemahnya permintaan logam industri. Kondisi ini dapat mencerminkan perlambatan aktivitas manufaktur maupun pembangunan di tingkat global.
+        Investor perlu memperhatikan apakah pelemahan ini sejalan dengan indikator makro lainnya sebelum menyimpulkan adanya perlambatan ekonomi yang lebih luas.
+
+        **Fokus Investor Saat Ini:**
+        - China Manufacturing PMI.
+        - Aktivitas konstruksi global.
+        - Permintaan sektor industri.
+        """
+    )
+
+else:
+    st.info(
+        """
+        ## Permintaan Copper Relatif Stabil
+
+        Pergerakan harga Copper masih berada dalam kisaran yang relatif stabil. Pasar masih menunggu katalis baru untuk menentukan arah permintaan logam industri.
+
+        **Fokus Investor Saat Ini:**
+        - Data manufaktur global.
+        - Perkembangan ekonomi China.
+        - Arah investasi sektor industri.
+        """
+    )
+
+st.caption("Source: Yahoo Finance (yfinance)")
+
+# ============================================================================================================
+# Iron ore
+# ============================================================================================================
+
+st.divider()
+st.subheader("🟠 Iron Ore")
+
+iron_price = get_iron()
+
+current_iron, previous_iron, iron_change = get_latest_metric(iron_price["Value"])
+peak_iron = float(iron_price["Value"].max())
+iron_trend = get_trend(iron_change)
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric(
+        "Current iron",
+        f"{current_iron:.2f}"
+    )
+
+with col2:
+    st.metric(
+        "Peak iron (5Y)",
+        f"{peak_iron:.2f}"
+    )
+
+with col3:
+    st.metric(
+        "Last Change",
+        f"{iron_change:.2f}"
+    )
+
+with col4:
+    st.metric(
+        "Trend",
+        iron_trend
+    )
+
+fig_iron = go.Figure()
+
+fig_iron.add_trace(
+    go.Scatter(
+        x=iron_price["Date"],
+        y=iron_price["Value"],
+        mode="lines",
+        name="Iron Ore"
+    )
+)
+
+fig_iron.update_layout(
+    template="plotly_dark",
+    height=500,
+    xaxis_title="Date",
+    yaxis_title="Price (USD/dmt)",
+    margin=dict(
+        l=20,
+        r=20,
+        t=20,
+        b=20
+    )
+)
+
+st.plotly_chart(
+    fig_iron,
+    use_container_width=True
+)
+
+st.caption("Source: macro_dataset.xlsx")
+
+
+# ============================================================================================================
+# Nickle
+# ============================================================================================================
+
+st.divider()
+st.subheader("🟠 Nickle")
+
+nickle_price = get_nickel()
+
+current_nickle, previous_nickle, nickle_change = get_latest_metric(nickle_price["Value"])
+peak_nickle = float(nickle_price["Value"].max())
+nickle_trend = get_trend(nickle_change)
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric(
+        "Current nickle",
+        f"{current_nickle:.2f}"
+    )
+
+with col2:
+    st.metric(
+        "Peak nickle (5Y)",
+        f"{peak_nickle:.2f}"
+    )
+
+with col3:
+    st.metric(
+        "Last Change",
+        f"{nickle_change:.2f}"
+    )
+
+with col4:
+    st.metric(
+        "Trend",
+        nickle_trend
+    )
+
+fig_nickle = go.Figure()
+
+fig_nickle.add_trace(
+    go.Scatter(
+        x=nickle_price["Date"],
+        y=nickle_price["Value"],
+        mode="lines",
+        name="Nickle"
+    )
+)
+
+fig_nickle.update_layout(
+    template="plotly_dark",
+    height=500,
+    xaxis_title="Date",
+    yaxis_title="Price (USD/MT)",
+    margin=dict(
+        l=20,
+        r=20,
+        t=20,
+        b=20
+    )
+)
+
+st.plotly_chart(
+    fig_nickle,
+    use_container_width=True
+)
+
+st.caption("Source: macro_dataset.xlsx")
