@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 # ============================================================================================================
-# LOAD DATA
+# LOAD FUNCTIONS
 # ============================================================================================================
 
 from data_source import get_fred_rate
@@ -17,6 +17,10 @@ from data_source import get_pmi
 from data_source import get_copper
 from data_source import get_iron
 from data_source import get_nickel
+from data_source import get_gold
+from data_source import get_oil
+from data_source import get_silver
+from data_source import get_natural_gas
 
 # ============================================================================================================
 # STREAMLIT CONFIG
@@ -39,9 +43,9 @@ st.divider()
 def get_trend(change):
     """Return trend text based on value change."""
     if change > 0:
-        return "↑ Uptrend"
+        return "⬆️ Uptrend"
     elif change < 0:
-        return "↓ Downtrend"
+        return "⬇️ Downtrend"
     else:
         return "↔️ Sideways"
 
@@ -52,419 +56,451 @@ def get_latest_metric(data):
     change = current - previous
     return current, previous, change
 
-
-# ============================================================================================================
-# Global Manufacturing Overview
-# ============================================================================================================
-
-st.subheader("🌍 Global Manufacturing Overview")
-
-china_pmi = get_pmi("China")
-china_pmi["Date"] = pd.to_datetime(china_pmi["Date"])
-
-us_pmi = get_pmi("US")
-us_pmi["Date"] = pd.to_datetime(us_pmi["Date"])
-
-current_china_pmi, _, _ = get_latest_metric(china_pmi["Value"])
-current_us_pmi, _, _ = get_latest_metric(us_pmi["Value"])
-
-if current_china_pmi > 50 and current_us_pmi > 50:
-    overall_status = "🟢 Global Expansion"
-elif current_china_pmi < 50 and current_us_pmi < 50:
-    overal_status = "🔴 Global Contraction"
-else:
-    overall_status = "🟡 Mixed Condition"
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.metric(
-        "China PMI",
-        current_china_pmi
-    )
-
-with col2:
-    st.metric(
-        "US PMI",
-        current_us_pmi
-    )
-
-with col3:
-    st.metric(
-        "Overall Status",
-        overall_status
-    )
-
-st.subheader("Current Assessment")
-
-if overall_status == "🟢 Global Expansion":
-    st.successes(
-        """
-        ## Aktifitas Manufaktur Global Sedang Menguat
-
-        China dan Amerika sama-sama berada pada fase ekspansi. Kondisi ini menunjukkan aktivitas manufaktur global sedang bertumbuh dan mencerminkan permintaan yang relatif sehat terhadap barang dan aktivitas industri.
-        Investor dapat memantau perkembangan ini sebagai sinyal awal bahwa momentum pertumbuhan ekonomi global masih terjaga.
-        """
-    )
-
-elif overall_status == "🟢 Global Contraction":
-    st.warning(
-        """
-        ## Aktivitas Manufaktur Global Sedang Melemah
-
-        PMI China dan Amerika Serikat sama-sama berada di bawah level 50, yang menunjukkan aktivitas manufaktur global sedang berada dalam fase kontraksi. Kondisi ini mengindikasikan bahwa permintaan industri masih lemah dan pemulihan ekonomi global belum terbentuk secara menyeluruh.
-        Investor sebaiknya meningkatkan kewaspadaan terhadap perlambatan ekonomi global dan menunggu konfirmasi dari indikator makro lainnya sebelum mengambil keputusan investasi yang lebih agresif.
-        """
-)
-
-else:
-    st.info(
-        """
-        ## Pemulihan Manufaktur Global Belum Merata
-
-        China dan Amerika menunjukkan arah yang berbeda. Kondisi ini mengindikasikan bahwa aktivitas manufaktur global masih berada dalam fase transisi dan belum menunjukkan tren yang seragam.
-        Investor sebaiknya menunggu konfirmasi dari data ekonomi berikutnya sebelum menyimpulkan arah pertumbuhan manufaktur dunia.
-        """
-)
+def get_pmi_status(value):
+    if value > 50:
+        return "🟢 Expansion"
+    elif value < 50:
+        return "🔴 Contraction"
+    else:
+        return "🟡 Neutral"
     
-# ============================================================================================================
-# FED RATE
-# =======================================================Í=====================================================
+def get_macro_overall(rate_change, dxy_change, us10y_change):
+    """
+    Return overall macro liquidity condition
+    """
+    score = 0
+    if rate_change < 0:
+        score += 1
+    elif rate_change > 0:
+        score -= 1
 
-st.subheader("🏦 Fed Rate")
+    if dxy_change < 0:
+        score += 1
+    elif dxy_change > 0:
+        score -= 1
+
+    if us10y_change < 0:
+        score += 1
+    elif us10y_change > 0:
+        score -= 1
+
+    if score >= 2: 
+        return "🟢 Improving Liquidity"
+    elif score <= -2:
+        return "🔴 Tightening Liquidity"
+    else:
+        return "🟡 Mixed Signal"
+
+def get_macro_summary(overall):
+    """"
+    Return macro summary based on overall condition
+    """
+    if overall == "🟢 Improving Liquidity":
+        return (
+            "Global liquidity condition is improving. Lower interest "
+            "rates, a weeker USD, and declining Treasury yields "
+            "generally create a more supportive environtment for risk assets and Emerging markets."
+        )
+    elif overall == "🔴 Tightening Liquidity":
+        return (
+            "Global liquidity condition is tightening. Higher interest "
+            "rates, a stronger USD, and rising Treasury yields "
+            "typically increase financial pressure and reduce investor's risk appetite."
+            ""
+        )
+    else:
+        return (
+            "Macro indicators are sending mixed signals. Investors should "
+            "wait for additional economic data before confirming the next market direction."
+        )
+
+def create_line_chart(data, title, yaxis_title):
+    """
+    Create standard plotly line chart.
+    """
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=data.index,
+            y=data,
+            mode="lines",
+            name=title
+        )
+    )
+
+    fig.update_layout(
+        template="plotly_dark",
+        height=500,
+        xaxis_title="Date",
+        yaxis_title=yaxis_title,
+        margin=dict(
+            l=20,
+            r=20,
+            t=20,
+            b=20
+        )
+    )
+
+    return fig
+
+def get_manufacturing_overall(china_pmi, us_pmi):
+    """
+    Return overall global manufacturing condition.
+    """
+    score = 0
+
+    if china_pmi > 50:
+        score += 1
+    elif china_pmi < 50:
+        score -= 1
+
+    if us_pmi > 50:
+        score += 1
+    elif us_pmi < 50:
+        score -= 1
+
+    if score == 2:
+        return "🟢 Global Expansion"
+    elif score == -2:
+        return "🔴 Global Contraction"
+    else:
+        return "🟡 Mixed Manufacturing"
+
+def get_manufacturing_summary(overall):
+    """
+    Return manufacturing summary.
+    """
+
+    if overall == "🟢 Global Expansion":
+        return (
+            "Manufacturing activity remains in expansion across the world's "
+            "largest economies. This suggests resilient industrial demand "
+            "and supports the outlook for cyclical sectors."
+        )
+
+    elif overall == "🔴 Global Contraction":
+        return (
+            "Manufacturing activity is contracting across major economies. "
+            "Weakening industrial demand may increase pressure on global "
+            "growth and cyclical sectors."
+        )
+
+    else:
+        return (
+            "Manufacturing indicators are sending mixed signals. "
+            "Investors should monitor future PMI releases to determine "
+            "whether global manufacturing is strengthening or weakening."
+        )
+# ============================================================================================================
+# LOAD DATA
+# ============================================================================================================
 
 fed_rate = get_fred_rate()
-
-current_rate, previous_rate, rate_change = get_latest_metric(fed_rate)
-peak_rate = fed_rate.max()
-
-rate_trend = get_trend(rate_change)
-
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(
-        "Current Fed-Rate",
-        f"{current_rate:.2f}%"
-    )
-
-with col2:
-    st.metric(
-        "Peak Fed-Rate (10Y)",
-        f"{peak_rate:.2f}%"
-    )
-
-with col3:
-    st.metric(
-        "Last Change",
-        f"{rate_change:.2f}%"
-    )
-
-with col4:
-    st.metric(
-        "Trend",
-        rate_trend
-    )
-
-fig = go.Figure()
-fig.add_trace(
-    go.Scatter(
-        x=fed_rate.index,
-        y=fed_rate,
-        mode="lines",
-        name="Fed Rate"
-    )
-)
-
-fig.update_layout(
-    height=500,
-    template="plotly_dark",
-    xaxis_title="Date",
-    yaxis_title="Rate (%)",
-    margin=dict(
-        l=20,
-        r=20,
-        t=20,
-        b=20
-    )
-)
-
-st.plotly_chart(
-    fig,
-    use_container_width=True
-)
-
-st.subheader("Current Assessment")
-if rate_change<0:
-    st.success(
-        """
-        ### Likuiditas Global Mulai Membaik
-
-        The Federal Reserve mulai menurunkan suku bunga acuannya. Penurunan suku bunga umumnya meningkatkan likuiditas global dan menurunkan biaya pendanaan, sehingga mendorong investor kembali ke aset yang memiliki risiko lebih tinggi.
-
-        **Potensi Dampak ke Pasar:**
-        - Arus modal berpotensi kembali ke Emerging Market.
-        - Rupiah cenderung lebih stabil atau menguat.
-        - IHSG berpotensi memperoleh sentimen positif.
-        - Sektor teknologi dan saham dengan pertumbuhan tinggi biasanya lebih diuntungkan.
-        """
-    )
-elif rate_change>0:
-    st.warning(
-        """
-        ### Likuiditas Global Semakin Ketat
-
-        The Federal Reserve masih melanjutkan kebijakan pengetatan moneter melalui kenaikan suku bunga. Kondisi ini meningkatkan biaya pinjaman dan membuat aset berdenominasi Dollar menjadi lebih menarik.
-
-        **Potensi Dampak ke Pasar:**
-        - Tekanan terhadap pasar saham global.
-        - Arus modal berpotensi keluar dari Emerging Market.
-        - Rupiah dapat mengalami pelemahan.
-        - IHSG berpotensi bergerak lebih defensif.
-        """
-    )
-else:
-    st.info(
-        """
-        ### Pasar Menunggu Arah Kebijakan Berikutnya
-
-        The Federal Reserve mempertahankan suku bunga acuannya. Pasar saat ini masih menunggu data ekonomi berikutnya sebelum menentukan ekspektasi terhadap perubahan kebijakan selanjutnya.
-
-        **Fokus Investor Saat Ini:**
-        - Data Inflasi Amerika Serikat.
-        - Data Tenaga Kerja (Non-Farm Payroll).
-        - Pernyataan terbaru dari The Federal Reserve.
-        """
-    )
-
-st.caption("Source: Federal Reserve Economic Data (FRED)")
-
-# ============================================================================================================
-# DXY
-# ============================================================================================================
-
-st.divider()
-st.subheader("💵 US Dollar Index (DXY)")
-
 dxy_close = get_dxy()
-
-current_dxy, previous_dxy, dxy_change = get_latest_metric(dxy_close)
-peak_dxy = float(dxy_close.max())
-
-dxy_trend = get_trend(dxy_change)
-
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(
-        "Current DXY",
-        f"{current_dxy:.2f}"
-    )
-
-with col2:
-    st.metric(
-        "Peak DXY (5Y)",
-        f"{peak_dxy:.2f}"
-    )
-
-with col3:
-    st.metric(
-        "Last Change",
-        f"{dxy_change:.2f}"
-    )
-
-with col4:
-    st.metric(
-        "Trend",
-        dxy_trend
-    )
-
-fig_dxy = go.Figure()
-
-fig_dxy.add_trace(
-    go.Scatter(
-        x=dxy_close.index,
-        y=dxy_close,
-        mode="lines",
-        name="DXY"
-    )
-)
-
-fig_dxy.update_layout(
-    template="plotly_dark",
-    height=500,
-    xaxis_title="Date",
-    yaxis_title="DXY Index",
-    margin=dict(
-        l=20,
-        r=20,
-        t=20,
-        b=20
-    )
-)
-
-st.plotly_chart(
-    fig_dxy,
-    use_container_width=True
-)
-
-st.subheader("Current Assessment")
-if dxy_change < 0:
-    st.success(
-        """
-        ### Tekanan Dollar Mulai Berkurang
-
-        Pelemahan Dollar AS menunjukkan tekanan terhadap mata uang negara berkembang mulai mereda. Kondisi ini juga biasanya memberikan dukungan terhadap harga komoditas yang diperdagangkan dalam Dollar.
-
-        **Potensi Dampak ke Pasar*:*
-        - Positif bagi Emerging Market.
-        - Rupiah berpotensi menguat.
-        - Harga komoditas memiliki peluang naik.
-        - Mendukung sektor pertambangan dan energi.
-        """
-    )
-elif dxy_change > 0:
-    st.warning(
-        """
-        ### Dollar AS Semakin Dominan
-
-        Penguatan Dollar menunjukkan investor lebih memilih aset yang dianggap aman. Kondisi ini biasanya menekan harga komoditas dan meningkatkan tekanan terhadap negara berkembang.
-
-        **Potensi Dampak ke Pasar:**
-        - Tekanan terhadap harga komoditas.
-        - Rupiah berpotensi melemah.
-        - Arus modal dapat berpindah ke Amerika Serikat.
-        - Sentimen pasar cenderung lebih berhati-hati.
-        """
-    )
-
-else:
-    st.info(
-        """
-        ### Dollar Bergerak Stabil
-
-        Pergerakan Dollar relatif tidak banyak berubah. Pasar masih menunggu katalis baru yang dapat menentukan arah berikutnya.
-
-        **Fokus Investor Saat Ini:**
-        - Inflasi Amerika Serikat.
-        - Kebijakan The Federal Reserve.
-        - Perkembangan ekonomi global.
-        """)
-
-st.caption("Source: Yahoo Finance (yfinance)")
-
-# ============================================================================================================
-# US 10Y
-# ============================================================================================================
-
-st.divider()
-st.subheader("📜 US 10Y Treasury Yield")
-
 us10y = get_us10y()
 
-current_us10y, previous_us10y, us10y_change = get_latest_metric(us10y)
-peak_us10y = float(us10y.max())
+china_pmi = get_pmi("China")
+us_pmi = get_pmi("US")
 
+copper_price = get_copper()
+iron_price = get_iron()
+nickel_price = get_nickel()
+
+oil_price = get_oil()
+gas_price = get_natural_gas()
+
+gold_price = get_gold()
+silver_price = get_silver()
+
+# ============================================================================================================
+# CALCULATE METRICS
+# ============================================================================================================
+
+# Fed Rate
+current_rate, previous_rate, rate_change = get_latest_metric(fed_rate)
+peak_rate = fed_rate.max()
+rate_trend = get_trend(rate_change)
+
+# DXY
+current_dxy, previous_dxy, dxy_change = get_latest_metric(dxy_close)
+peak_dxy = dxy_close.max()
+dxy_trend = get_trend(dxy_change)
+
+# US10Y
+current_us10y, previous_us10y, us10y_change = get_latest_metric(us10y)
+peak_us10y = us10y.max()
 us10y_trend = get_trend(us10y_change)
 
-col1, col2, col3, col4 = st.columns(4)
+# PMI    
+current_china_pmi, prev_china_pmi, china_pmi_change = get_latest_metric(china_pmi["Value"])
+china_status = get_pmi_status(current_china_pmi)
+current_us_pmi, prev_us_pmi, us_pmi_change = get_latest_metric(us_pmi["Value"])
+us_status = get_pmi_status(current_us_pmi)
+
+# Copper    
+current_copper, prev_copper, copper_change = get_latest_metric(copper_price)
+peak_copper = float(copper_price.max())
+copper_trend = get_trend(copper_change)
+
+# Iron    
+current_iron, prev_iron, iron_change = get_latest_metric(iron_price["Value"])
+peak_iron = float(iron_price["Value"].max())
+iron_trend = get_trend(iron_change)
+
+# Nickel    
+current_nickel, prev_nickel, nickel_change = get_latest_metric(nickel_price["Value"])
+peak_nickel = float(nickel_price["Value"].max())
+nickel_trend = get_trend(nickel_change)
+
+# Oil    
+current_oil, prev_oil, oil_change = get_latest_metric(oil_price)
+peak_oil = float(oil_price.max())
+oil_trend = get_trend(oil_change)
+
+# Gas    
+current_gas, prev_gas, gas_change = get_latest_metric(gas_price)
+peak_gas = float(gas_price.max())
+gas_trend = get_trend(gas_change)
+
+# Gold    
+current_gold, prev_gold, gold_change = get_latest_metric(gold_price)
+peak_gold = float(gold_price.max())
+gold_trend = get_trend(gold_change)
+
+# Silver    
+current_silver, prev_silver, silver_change = get_latest_metric(silver_price)
+peak_silver = float(silver_price.max()) 
+silver_trend = get_trend(silver_change)
+
+# ============================================================================================================
+# GLOBAL MACRO ANALYSIS
+# ============================================================================================================
+
+# OVERVIEW
+# --------
+
+if "macro_selected" not in st.session_state:
+    st.session_state.macro_selected = "Fed"
+
+macro_overall = get_macro_overall(
+        rate_change,
+        dxy_change,
+        us10y_change
+    )
+macro_summary = get_macro_summary(
+        macro_overall
+    )
+
+st.subheader("🌍 Global Macro Analysis")
+with st.container(border=True):
+    st.markdown("### 🌐 Overall Outlook")
+    st.success(macro_overall)
+
+    st.markdown("### 📊 Key Indicators")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        with st.container(border=True):
+                st.markdown("#### 🏦 Fed Rate")
+                st.markdown(f"## {current_rate:.2f}%")
+                st.markdown(f"**{rate_trend}**")
+
+                #if st.session_state.macro_selected == "Fed":
+                 #   st.success("✓ Viewing")
+                #else:
+                if st.button(
+                            "Analyze",
+                            key="fed_button",
+                            use_container_width=True
+                        ):
+                        st.session_state.macro_selected = "Fed"
+
+    with col2:
+        with st.container(border=True):
+                st.markdown("#### 💵 US Dollar Index")
+                st.markdown(f"## {current_dxy:.2f}")
+                st.markdown(f"**{dxy_trend}**")
+
+#                if st.session_state.macro_selected == "DXY":
+#                   st.success("✓ Viewing")
+#                else:
+                if st.button(
+                            "Analyze",
+                            key="dxy_button",
+                            use_container_width=True
+                        ):
+                        st.session_state.macro_selected = "DXY"
+
+    with col3:
+            with st.container(border=True):
+                st.markdown("#### 📜 US10Y Treasury")
+                st.markdown(f"## {current_us10y:.2f}%")
+                st.markdown(f"**{us10y_trend}**")
+
+#                if st.session_state.macro_selected == "US10Y":
+#                    st.success("✓ Viewing")
+#                else:
+                if st.button(
+                            "Analyze",
+                            key="us10y_button",
+                            use_container_width=True
+                        ):
+                        st.session_state.macro_selected = "US10Y"
+
+    st.markdown("### 📝 Summary")
+    st.info(macro_summary)
+
+# DETAIL ANALYSIS GLOBAL MACRO
+# ----------------------------
+
+selected_macro = st.session_state.macro_selected
+if selected_macro == "Fed":
+        st.subheader("🏦 Fed Rate")
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric(
+                "Current Fed-Rate",
+                f"{current_rate:.2f}%"
+            )
+        with col2:
+            st.metric(
+                "Peak Fed-Rate (10Y)",
+                f"{peak_rate:.2f}%"
+            )
+        with col3:
+            st.metric(
+                "Last Change",
+                f"{rate_change:.2f}%"
+            )
+        with col4:
+            st.metric(
+                "Trend",
+                rate_trend
+            )
+
+        fig = create_line_chart(
+                fed_rate,
+                "Fed Rate",
+                "Rate (%)"
+            )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+        st.caption("Source: Federal Reserve Economic Data (FRED)")
+
+elif selected_macro == "DXY":
+        st.subheader("💵 US Dollar Index")
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric(
+                "Current DXY",
+                f"{current_dxy:.2f}"
+            )
+        with col2:
+            st.metric(
+                "Peak DXY (5Y)",
+                f"{peak_dxy:.2f}"
+            )
+        with col3:
+            st.metric(
+                "Last Change",
+                f"{dxy_change:.2f}"
+            )
+        with col4:
+            st.metric(
+                "Trend",
+                dxy_trend
+            )
+
+        fig = create_line_chart(
+                dxy_close,
+                "DXY",
+                "DXY Index"
+            )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+        st.caption("Source: Yahoo Finance (yfinance)")
+
+else:
+        st.subheader("📜 US10Y Treasury")
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric(
+                "Current US10Y",
+                f"{current_us10y:.2f}%"
+            )
+        with col2:
+            st.metric(
+                "Peak US10Y (10Y)",
+                f"{peak_us10y:.2f}%"
+            )
+        with col3:
+            st.metric(
+                "Last Change",
+                f"{us10y_change:.2f}%"
+            )
+        with col4:
+            st.metric(
+                "Trend",
+                us10y_trend
+            )
+
+        fig = create_line_chart(
+                dxy_close,
+                "US10Y",
+                "US10Y Index"
+            )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+        st.caption("Source: Federal Reserve Economic Data (FRED)")
+
+st.divider()
+        
+# ============================================================================================================
+# GLOBAL MANUFACTURING OVERVIEW
+# ============================================================================================================
+
+manufacturing_overall = get_macro_overall(rate_change, dxy_change, us10y_change)
+manufacturing_summary = get_macro_summary(macro_overall)
+
+st.header("🏭 Global Manufacturing Overview")
+
+with st.container(border=True):
+    st.markdown("### 🟢 Overall Outlook")
+    st.success(manufacturing_overall)
+
+st.markdown("### 📊 Key Indicators")
+col1, col2 = st.columns(2)
 
 with col1:
-    st.metric(
-        "Current US10Y",
-        f"{current_us10y:.2f}%"
-    )
-
-
+        st.metric(
+            "China PMI",
+            china_status
+        )
 with col2:
-    st.metric(
-        "Peak US10Y (10Y)",
-        f"{peak_us10y:.2f}%"
-    )
+        st.metric(
+            "US PMI",
+            us_status
+        )
 
-with col3:
-    st.metric(
-        "Last Change",
-        f"{us10y_change:.2f}%"
-    )
+st.markdown("### 📝 Summary")
+st.write(manufacturing_summary)
 
-with col4:
-    st.metric(
-        "Trend",
-        us10y_trend
-    )
-
-fig_us10y = go.Figure()
-
-fig_us10y.add_trace(
-    go.Scatter(
-        x=us10y.index,
-        y=us10y,
-        mode="lines",
-        name="US10Y"
-    )
-)
-
-fig_us10y.update_layout(
-    template="plotly_dark",
-    height=500,
-    xaxis_title="Date",
-    yaxis_title="Yield (%)",
-    margin=dict(
-        l=20,
-        r=20,
-        t=20,
-        b=20
-    )
-)
-
-st.plotly_chart(
-    fig_us10y,
-    use_container_width=True
-)
-
-st.subheader("Current Assessment")
-if us10y_change < 0:
-    st.success(
-        """
-        ### Minat terhadap Aset Berisiko Mulai Meningkat
-
-        Penurunan imbal hasil obligasi pemerintah Amerika menunjukkan tekanan di pasar obligasi mulai mereda. Investor biasanya mulai kembali mempertimbangkan aset yang memiliki potensi imbal hasil lebih tinggi.
-
-        **Potensi Dampak ke Pasar:**
-        - Positif bagi pasar saham global.
-        - Mendukung Emerging Market.
-        - Biaya pendanaan perusahaan menjadi lebih rendah.
-        """
-    )
-elif us10y_change > 0:
-    st.warning(
-        """
-        ### Obligasi Amerika Semakin Menarik
-
-        Kenaikan imbal hasil obligasi meningkatkan daya tarik aset pendapatan tetap dibandingkan saham. Investor cenderung lebih berhati-hati terhadap aset berisiko.
-
-        **Potensi Dampak ke Pasar:**
-        - Tekanan terhadap valuasi saham.
-        - Arus dana menuju obligasi Amerika.
-        - Meningkatkan biaya pendanaan secara global.
-        """
-    )
-else:
-    st.info(
-        """
-        ### Pasar Obligasi Bergerak Seimbang
-
-        Pergerakan US Treasury Yield relatif stabil. Investor masih menunggu data ekonomi yang dapat memberikan arah baru terhadap pasar obligasi.
-
-        **Fokus Investor Saat Ini:**
-        - Inflasi.
-        - Pertumbuhan ekonomi.
-        - Kebijakan suku bunga The Federal Reserve.
-        """
-    )
-
-st.caption("Source: Federal Reserve Economic Data (FRED)")
+st.divider()
 
 # ============================================================================================================
 # China PMI
@@ -551,50 +587,6 @@ st.plotly_chart(
     fig,
     use_container_width=True
 )
-
-st.subheader("Current Assessment")
-
-if current_china_pmi > 50:
-    st.success(
-        """
-        ### Aktivitas Manufaktur China Sedang Bertumbuh
-
-        PMI berada di atas level 50, yang menunjukkan aktivitas manufaktur sedang mengalami ekspansi. Peningkatan aktivitas pabrik biasanya diikuti oleh kenaikan produksi, pesanan baru, dan kebutuhan bahan baku.
-
-        **Potensi Dampak ke Pasar:**
-        - Permintaan logam industri berpotensi meningkat.
-        - Positif bagi sektor pertambangan.
-        - Mendukung harga Copper, Iron Ore, Nickel, dan komoditas industri lainnya.
-        - Memberikan sentimen positif bagi negara pengekspor komoditas, termasuk Indonesia.
-        """
-    )
-elif current_china_pmi < 50:
-    st.warning(
-        """
-        ### Aktivitas Manufaktur China Mulai Melambat
-
-        PMI berada di bawah level 50, yang mengindikasikan sektor manufaktur sedang mengalami kontraksi. Penurunan aktivitas produksi biasanya diikuti oleh melemahnya permintaan bahan baku dan aktivitas industri.
-
-        **Potensi Dampak ke Pasar:**
-        - Permintaan komoditas industri berpotensi menurun.
-        - Memberikan tekanan pada sektor pertambangan.
-        - Harga logam industri berpotensi melemah.
-        - Sentimen terhadap negara pengekspor komoditas cenderung negatif.
-        """
-    )
-else:
-    st.info(
-        """
-        ### Aktivitas Manufaktur Berada di Titik Keseimbangan
-
-        PMI berada tepat di level 50, yang menunjukkan aktivitas manufaktur belum menunjukkan ekspansi maupun kontraksi secara signifikan. Pasar masih menunggu data bulan berikutnya untuk mengonfirmasi arah tren.
-
-        **Fokus Investor Saat Ini:**
-        - Perkembangan pesanan baru.
-        - Kebijakan stimulus pemerintah China.
-        - Permintaan ekspor dan konsumsi domestik.
-        """
-    )
 
 st.caption("Source: National Bureau of Statistics (NBS)")
 
@@ -685,51 +677,6 @@ st.plotly_chart(
     use_container_width=True
 )
 
-st.subheader("Current Assessment")
-
-if current_us_pmi > 50:
-    st.success(
-        """
-        ### Aktivitas Manufaktur Amerika Sedang Bertumbuh
-
-        PMI berada di atas level 50, yang menunjukkan sektor manufaktur Amerika sedang mengalami ekspansi. Peningkatan aktivitas ini mencerminkan pertumbuhan produksi, pesanan baru, dan optimisme pelaku industri terhadap kondisi ekonomi.
-
-        **Potensi Dampak ke Pasar:**
-        - Mengindikasikan pertumbuhan ekonomi Amerika yang masih kuat.
-        - Meningkatkan kepercayaan investor terhadap aktivitas bisnis.
-        - Berpotensi mendukung kinerja pasar saham apabila pertumbuhan tetap terkendali.
-        - Perlu diwaspadai apabila ekspansi terlalu kuat karena dapat meningkatkan tekanan inflasi dan memengaruhi kebijakan suku bunga The Fed.
-        """
-    )
-elif current_us_pmi < 50:
-    st.warning(
-        """
-        ### Aktivitas Manufaktur Amerika Mulai Melambat
-
-        PMI berada di bawah level 50, yang menunjukkan sektor manufaktur sedang mengalami kontraksi. Penurunan aktivitas ini dapat mengindikasikan melemahnya permintaan, berkurangnya produksi, serta meningkatnya kehati-hatian pelaku usaha.
-
-        **Potensi Dampak ke Pasar:**
-        - Mengindikasikan perlambatan pertumbuhan ekonomi Amerika.
-        - Menekan sentimen terhadap pasar saham apabila kontraksi berlangsung berkelanjutan.
-        - Dapat mengurangi tekanan inflasi sehingga membuka peluang pelonggaran kebijakan moneter di masa mendatang.
-        - Investor perlu memantau data ekonomi lainnya untuk memastikan apakah perlambatan bersifat sementara atau mulai membentuk tren yang lebih panjang.
-        """
-    )
-else:
-    st.info(
-        """
-        ### Aktivitas Manufaktur Berada di Titik Keseimbangan
-
-        PMI berada tepat pada level 50, yang menunjukkan aktivitas manufaktur belum mengalami ekspansi maupun kontraksi secara signifikan. Kondisi ini mencerminkan fase transisi di mana pasar masih menunggu arah ekonomi yang lebih jelas.
-
-        **Fokus Investor Saat Ini:**
-        - Data inflasi Amerika Serikat.
-        - Kebijakan suku bunga The Federal Reserve.
-        - Data tenaga kerja dan tingkat konsumsi masyarakat.
-        - Perkembangan pesanan baru pada sektor manufaktur.
-        """
-    )
-
 st.caption("Source: Institute for Supply Management (ISM)")
 
 # ============================================================================================================
@@ -799,50 +746,6 @@ st.plotly_chart(
     fig_copper,
     use_container_width=True
 )
-   
-st.subheader("Current Assessment")
-if copper_change < 0:
-    st.success(
-        """
-        ## Permintaan Copper Sedang Menguat
-
-        Harga Copper mengalami kenaikan yang menunjukkan meningkatnya permintaan terhadap logam industri. Kondisi ini biasanya terjadi ketika aktivitas manufaktur, pembangunan infrastruktur, dan investasi sedang bertumbuh.
-        Copper sering dijadikan indikator awal kesehatan ekonomi global karena penggunaannya yang sangat luas di berbagai sektor industri.
-
-        **Fokus Investor Saat Ini:**
-        - Konfirmasi dari China Manufacturing PMI.
-        - Tren permintaan industri global.
-        - Prospek sektor pertambangan dan logam.
-        """
-    )
-elif copper_change > 0:
-    st.warning(
-        """
-        ## Permintaan Copper Mulai Melemah
-
-        Harga Copper mengalami penurunan yang mengindikasikan melemahnya permintaan logam industri. Kondisi ini dapat mencerminkan perlambatan aktivitas manufaktur maupun pembangunan di tingkat global.
-        Investor perlu memperhatikan apakah pelemahan ini sejalan dengan indikator makro lainnya sebelum menyimpulkan adanya perlambatan ekonomi yang lebih luas.
-
-        **Fokus Investor Saat Ini:**
-        - China Manufacturing PMI.
-        - Aktivitas konstruksi global.
-        - Permintaan sektor industri.
-        """
-    )
-
-else:
-    st.info(
-        """
-        ## Permintaan Copper Relatif Stabil
-
-        Pergerakan harga Copper masih berada dalam kisaran yang relatif stabil. Pasar masih menunggu katalis baru untuk menentukan arah permintaan logam industri.
-
-        **Fokus Investor Saat Ini:**
-        - Data manufaktur global.
-        - Perkembangan ekonomi China.
-        - Arah investasi sektor industri.
-        """
-    )
 
 st.caption("Source: Yahoo Finance (yfinance)")
 
@@ -916,7 +819,6 @@ st.plotly_chart(
 
 st.caption("Source: macro_dataset.xlsx")
 
-
 # ============================================================================================================
 # Nickle
 # ============================================================================================================
@@ -986,3 +888,283 @@ st.plotly_chart(
 )
 
 st.caption("Source: macro_dataset.xlsx")
+
+# ============================================================================================================
+# Oil
+# ============================================================================================================
+
+st.divider()
+st.subheader("🛢️ Crude Oil")
+
+oil_price = get_oil()
+
+current_oil, previous_oil, oil_change = get_latest_metric(oil_price)
+peak_oil = float(oil_price.max())
+oil_trend = get_trend(oil_change)
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric(
+        "Current Oil",
+        f"{current_oil:.2f}"
+    )
+
+with col2:
+    st.metric(
+        "Peak Oil (5Y)",
+        f"{peak_oil:.2f}"
+    )
+
+with col3:
+    st.metric(
+        "Last Change",
+        f"{oil_change:.2f}"
+    )
+
+with col4:
+    st.metric(
+        "Trend",
+        oil_trend
+    )
+
+fig_oil = go.Figure()
+
+fig_oil.add_trace(
+    go.Scatter(
+        x=oil_price.index,
+        y=oil_price,
+        mode="lines",
+        name="Crude Oil"
+    )
+)
+
+fig_oil.update_layout(
+    template="plotly_dark",
+    height=500,
+    xaxis_title="Date",
+    yaxis_title="Price (USD/bbl)",
+    margin=dict(
+        l=20,
+        r=20,
+        t=20,
+        b=20
+    )
+)
+
+st.plotly_chart(
+    fig_oil,
+    use_container_width=True
+)
+
+st.caption("Source: Yahoo Finance (yfinance)")
+
+# ============================================================================================================
+# Natural Gas
+# ============================================================================================================
+
+st.divider()
+st.subheader("🛢️ Natural Gas")
+
+natural_gas_price = get_natural_gas()
+
+current_natural_gas, previous_natural_gas, natural_gas_change = get_latest_metric(natural_gas_price)
+peak_natural_gas = float(natural_gas_price.max())
+natural_gas_trend = get_trend(natural_gas_change)
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric(
+        "Current Natural Gas",
+        f"{current_natural_gas:.2f}"
+    )
+
+with col2:
+    st.metric(
+        "Peak Natural Gas (5Y)",
+        f"{peak_natural_gas:.2f}"
+    )
+
+with col3:
+    st.metric(
+        "Last Change",
+        f"{natural_gas_change:.2f}"
+    )
+
+with col4:
+    st.metric(
+        "Trend",
+        natural_gas_trend
+    )
+
+fig_natural_gas = go.Figure()
+
+fig_natural_gas.add_trace(
+    go.Scatter(
+        x=natural_gas_price.index,
+        y=natural_gas_price,
+        mode="lines",
+        name="Natural Gas"
+    )
+)
+
+fig_natural_gas.update_layout(
+    template="plotly_dark",
+    height=500,
+    xaxis_title="Date",
+    yaxis_title="Price (USD/MMBtu)",
+    margin=dict(
+        l=20,
+        r=20,
+        t=20,
+        b=20
+    )
+)
+
+st.plotly_chart(
+    fig_natural_gas,
+    use_container_width=True
+)
+
+st.caption("Source: Yahoo Finance (yfinance)")
+
+# ============================================================================================================
+# Gold
+# ============================================================================================================
+
+st.divider()
+st.subheader("Gold")
+
+gold_price = get_gold()
+
+current_gold, previous_gold, gold_change = get_latest_metric(gold_price)
+peak_gold = float(gold_price.max())
+gold_trend = get_trend(gold_change)
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric(
+        "Current Gold",
+        f"{current_gold:.2f}"
+    )
+
+with col2:
+    st.metric(
+        "Peak Gold (5Y)",
+        f"{peak_gold:.2f}"
+    )
+
+with col3:
+    st.metric(
+        "Last Change",
+        f"{gold_change:.2f}"
+    )
+
+with col4:
+    st.metric(
+        "Trend",
+        gold_trend
+    )
+
+fig_gold = go.Figure()
+
+fig_gold.add_trace(
+    go.Scatter(
+        x=gold_price.index,
+        y=gold_price,
+        mode="lines",
+        name="Gold"
+    )
+)
+
+fig_gold.update_layout(
+    template="plotly_dark",
+    height=500,
+    xaxis_title="Date",
+    yaxis_title="Price (USD/oz)",
+    margin=dict(
+        l=20,
+        r=20,
+        t=20,
+        b=20
+    )
+)
+
+st.plotly_chart(
+    fig_gold,
+    use_container_width=True
+)
+
+st.caption("Source: Yahoo Finance (yfinance)")
+
+# ============================================================================================================
+# Silver
+# ============================================================================================================
+
+st.divider()
+st.subheader("Gold")
+
+silver_price = get_silver()
+
+current_silver, previous_silver, silver_change = get_latest_metric(silver_price)
+peak_silver = float(silver_price.max())
+silver_trend = get_trend(silver_change)
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric(
+        "Current Silver",
+        f"{current_silver:.2f}"
+    )
+
+with col2:
+    st.metric(
+        "Peak Silver (5Y)",
+        f"{peak_silver:.2f}"
+    )
+
+with col3:
+    st.metric(
+        "Last Change",
+        f"{silver_change:.2f}"
+    )
+
+with col4:
+    st.metric(
+        "Trend",
+        silver_trend
+    )
+
+fig_silver = go.Figure()
+
+fig_silver.add_trace(
+    go.Scatter(
+        x=silver_price.index,
+        y=silver_price,
+        mode="lines",
+        name="Silver"
+    )
+)
+
+fig_silver.update_layout(
+    template="plotly_dark",
+    height=500,
+    xaxis_title="Date",
+    yaxis_title="Price (USD/oz)",
+    margin=dict(
+        l=20,
+        r=20,
+        t=20,
+        b=20
+    )
+)
+
+st.plotly_chart(
+    fig_silver,
+    use_container_width=True
+)
+
+st.caption("Source: Yahoo Finance (yfinance)")
