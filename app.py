@@ -63,7 +63,37 @@ def get_pmi_status(value):
         return "🔴 Contraction"
     else:
         return "🟡 Neutral"
-    
+
+def create_line_chart(data, title, yaxis_title):
+    """
+    Create standard plotly line chart.
+    """
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=data.index,
+            y=data,
+            mode="lines",
+            name=title
+        )
+    )
+
+    fig.update_layout(
+        template="plotly_dark",
+        height=500,
+        xaxis_title="Date",
+        yaxis_title=yaxis_title,
+        margin=dict(
+            l=20,
+            r=20,
+            t=20,
+            b=20
+        )
+    )
+
+    return fig
+
 def get_macro_overall(rate_change, dxy_change, us10y_change):
     """
     Return overall macro liquidity condition
@@ -114,36 +144,6 @@ def get_macro_summary(overall):
             "wait for additional economic data before confirming the next market direction."
         )
 
-def create_line_chart(data, title, yaxis_title):
-    """
-    Create standard plotly line chart.
-    """
-    fig = go.Figure()
-
-    fig.add_trace(
-        go.Scatter(
-            x=data.index,
-            y=data,
-            mode="lines",
-            name=title
-        )
-    )
-
-    fig.update_layout(
-        template="plotly_dark",
-        height=500,
-        xaxis_title="Date",
-        yaxis_title=yaxis_title,
-        margin=dict(
-            l=20,
-            r=20,
-            t=20,
-            b=20
-        )
-    )
-
-    return fig
-
 def get_manufacturing_overall(china_pmi, us_pmi):
     """
     Return overall global manufacturing condition.
@@ -192,6 +192,64 @@ def get_manufacturing_summary(overall):
             "Investors should monitor future PMI releases to determine "
             "whether global manufacturing is strengthening or weakening."
         )
+
+def get_industrial_overall(copper_change, iron_change, nickel_change):
+    """
+    Return overall industrial metals outlook.
+    """
+
+    score = 0
+
+    if copper_change > 0:
+        score += 1
+    elif copper_change < 0:
+        score -= 1
+
+    if iron_change > 0:
+        score += 1
+    elif iron_change < 0:
+        score -= 1
+
+    if nickel_change > 0:
+        score += 1
+    elif nickel_change < 0:
+        score -= 1
+
+    if score >= 2:
+        return "🟢 Strong Industrial Demand"
+
+    elif score <= -2:
+        return "🔴 Weak Industrial Demand"
+
+    else:
+        return "🟡 Mixed Industrial Demand"
+
+def get_industrial_summary(overall):
+    """
+    Return industrial metals summary.
+    """
+
+    if overall == "🟢 Strong Industrial Demand":
+        return (
+            "Industrial metals continue to signal healthy global demand. "
+            "Broad price strength across key metals suggests resilient "
+            "manufacturing activity and ongoing infrastructure investment."
+        )
+
+    elif overall == "🔴 Weak Industrial Demand":
+        return (
+            "Industrial metals indicate weakening global demand. "
+            "Broad price declines may reflect slowing manufacturing "
+            "activity and softer investment in construction and industry."
+        )
+
+    else:
+        return (
+            "Industrial metals are sending mixed signals. "
+            "Price movements are not yet aligned across key metals, "
+            "suggesting that industrial demand remains uneven."
+        )
+    
 # ============================================================================================================
 # LOAD DATA
 # ============================================================================================================
@@ -305,9 +363,6 @@ with st.container(border=True):
                 st.markdown(f"## {current_rate:.2f}%")
                 st.markdown(f"**{rate_trend}**")
 
-                #if st.session_state.macro_selected == "Fed":
-                 #   st.success("✓ Viewing")
-                #else:
                 if st.button(
                             "Analyze",
                             key="fed_button",
@@ -321,9 +376,6 @@ with st.container(border=True):
                 st.markdown(f"## {current_dxy:.2f}")
                 st.markdown(f"**{dxy_trend}**")
 
-#                if st.session_state.macro_selected == "DXY":
-#                   st.success("✓ Viewing")
-#                else:
                 if st.button(
                             "Analyze",
                             key="dxy_button",
@@ -337,9 +389,6 @@ with st.container(border=True):
                 st.markdown(f"## {current_us10y:.2f}%")
                 st.markdown(f"**{us10y_trend}**")
 
-#                if st.session_state.macro_selected == "US10Y":
-#                    st.success("✓ Viewing")
-#                else:
                 if st.button(
                             "Analyze",
                             key="us10y_button",
@@ -471,423 +520,419 @@ else:
 st.divider()
         
 # ============================================================================================================
-# GLOBAL MANUFACTURING OVERVIEW
+# GLOBAL MANUFACTURING ANALYSIS
 # ============================================================================================================
 
-manufacturing_overall = get_macro_overall(rate_change, dxy_change, us10y_change)
-manufacturing_summary = get_macro_summary(macro_overall)
+# OVERVIEW
+# --------
 
-st.header("🏭 Global Manufacturing Overview")
+if "manufacturing_selected" not in st.session_state:
+    st.session_state.manufacturing_selected = "China PMI"
 
+manufacturing_overall = get_manufacturing_overall(
+        current_china_pmi,
+        current_us_pmi,
+    )
+manufacturing_summary = get_manufacturing_summary(
+        manufacturing_overall
+    )
+
+st.subheader("🏭 Global Manufacturing Overview")
 with st.container(border=True):
-    st.markdown("### 🟢 Overall Outlook")
+    st.markdown("### 🌐 Overall Outlook")
     st.success(manufacturing_overall)
 
-st.markdown("### 📊 Key Indicators")
-col1, col2 = st.columns(2)
+    st.markdown("### 📊 Key Indicators")
+    col1, col2 = st.columns(2)
+    with col1:
+        with st.container(border=True):
+                st.markdown("#### 🇨🇳 China PMI")
+                st.markdown(f"## {current_china_pmi:.1f}%")
+                st.markdown(f"**{china_status}**")
 
-with col1:
-        st.metric(
-            "China PMI",
-            china_status
+                if st.button(
+                            "Analyze",
+                            key="china_button",
+                            use_container_width=True
+                        ):
+                        st.session_state.manufacturing_selected = "China PMI"
+
+    with col2:
+        with st.container(border=True):
+                st.markdown("#### 🇺🇸 US PMI")
+                st.markdown(f"## {current_us_pmi:.1f}")
+                st.markdown(f"**{us_status}**")
+
+                if st.button(
+                            "Analyze",
+                            key="us_button",
+                            use_container_width=True
+                        ):
+                        st.session_state.manufacturing_selected = "US PMI"
+
+    st.markdown("### 📝 Summary")
+    st.info(manufacturing_summary)
+
+# DETAIL ANALYSIS GLOBAL MANUFACTURING
+# ------------------------------------
+
+selected_manufacturing = st.session_state.manufacturing_selected
+if selected_manufacturing == "China PMI":
+        st.subheader("🇨🇳 China PMI")
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric(
+                "Current PMI",
+                current_china_pmi
+            )
+        with col2:
+            st.metric(
+                "Previous PMI",
+                prev_china_pmi
+            )
+        with col3:
+            st.metric(
+                "Monthly Change",
+                f"{china_pmi_change:.2f}%"
+            )
+        with col4:
+            st.metric(
+                "Status",
+                china_status
+            )
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=china_pmi["Date"],
+                y=china_pmi["Value"],
+                mode="lines",
+                name="China PMI"
+            )
         )
-with col2:
-        st.metric(
-            "US PMI",
-            us_status
+        fig.update_layout(
+            height=500,
+            template="plotly_dark",
+            xaxis_title="Date",
+            yaxis_title="PMI Value",
+            margin=dict(
+                l=20,
+                r=20,
+                t=20,
+                b=20
+            )
         )
 
-st.markdown("### 📝 Summary")
-st.write(manufacturing_summary)
+        fig.update_xaxes(
+            dtick="M1",
+            tickformat="%b %Y",
+            tickangle=0
+        )
 
-st.divider()
+        fig.add_hline(
+            y=50,
+            line_dash="dash",
+            line_color="yellow",
+            annotation_text="PMI = 50",
+        )
 
-# ============================================================================================================
-# China PMI
-# ============================================================================================================
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
 
-st.divider()
-st.subheader("🏭 China Manufacturing PMI")
+        st.caption("Source: National Bureau of Statistics of China (NBS)")
 
-china_pmi = get_pmi("China")
-
-current_china_pmi, prev_china_pmi, china_pmi_change = get_latest_metric(china_pmi["Value"])
-
-if current_china_pmi > 50:
-    status = "🟢 Expansion"
-elif current_china_pmi < 50:
-    status = "🔴 Contraction"
 else:
-    status = "🟡 Neutral"
+        st.subheader("🇺🇸 US PMI")
 
-col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric(
+                "Current PMI",
+                current_us_pmi
+            )
+        with col2:
+            st.metric(
+                "Previous PMI",
+                prev_us_pmi
+            )
+        with col3:
+            st.metric(
+                "Monthly Change",
+                f"{us_pmi_change:.2f}%"
+            )
+        with col4:
+            st.metric(
+                "Status",
+                us_status
+            )
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=us_pmi["Date"],
+                y=us_pmi["Value"],
+                mode="lines",
+                name="US PMI"
+            )
+        )
+        fig.update_layout(
+            height=500,
+            template="plotly_dark",
+            xaxis_title="Date",
+            yaxis_title="PMI Value",
+            margin=dict(
+                l=20,
+                r=20,
+                t=20,
+                b=20
+            )
+        )
+        fig.update_xaxes(
+            dtick="M1",
+            tickformat="%b %Y",
+            tickangle=0
+        )
+        fig.add_hline(
+            y=50,
+            line_dash="dash",
+            line_color="yellow",
+            annotation_text="PMI = 50",
+        )
 
-with col1:
-    st.metric(
-        "Current PMI",
-        current_china_pmi
-    )
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
 
-with col2:
-    st.metric(
-        "Previous PMI",
-        prev_china_pmi
-    )
-
-with col3:
-    st.metric(
-        "Monthly Change",
-        f"{china_pmi_change:.2f}"
-    )
-
-with col4:
-    st.metric(
-        "Status",
-        status
-    )
-
-fig = go.Figure()
-fig.add_trace(
-    go.Scatter(
-        x=china_pmi["Date"],
-        y=china_pmi["Value"],
-        mode="lines",
-        name="China PMI"
-    )
-)
-
-fig.update_layout(
-    height=500,
-    template="plotly_dark",
-    xaxis_title="Date",
-    yaxis_title="PMI Value",
-    margin=dict(
-        l=20,
-        r=20,
-        t=20,
-        b=20
-    )
-)
-
-china_pmi["Date"] = pd.to_datetime(china_pmi["Date"])
-fig.update_xaxes(
-    dtick="M1",
-    tickformat="%b %Y",
-    tickangle=0
-)
-
-fig.add_hline(
-    y=50,
-    line_dash="dash",
-    line_color="yellow",
-    annotation_text="PMI = 50",
-)
-
-st.plotly_chart(
-    fig,
-    use_container_width=True
-)
-
-st.caption("Source: National Bureau of Statistics (NBS)")
-
-# ============================================================================================================
-# US PMI
-# ============================================================================================================
+        st.caption("Source: Institute for Supply Management (ISM)")
 
 st.divider()
-st.subheader("🏭 US Manufacturing PMI")
 
-us_pmi = get_pmi("US")
+# ============================================================================================================
+# INDUSTRIAL METALS ANALYSIS
+# ============================================================================================================
 
-us_pmi["Date"] = pd.to_datetime(us_pmi["Date"])
+# OVERVIEW
+# --------
 
-current_us_pmi, prev_us_pmi, us_pmi_change = get_latest_metric(us_pmi["Value"])
+if "metals_selected" not in st.session_state:
+    st.session_state.metals_selected = "Copper"
 
-if current_us_pmi > 50:
-    status = "🟢 Expansion"
-elif current_us_pmi < 50:
-    status = "🔴 Contraction"
+metals_overall = get_industrial_overall(
+        copper_change,
+        iron_change,
+        nickel_change
+    )
+metals_summary = get_industrial_summary(
+        metals_overall
+    )
+
+st.subheader("🪨 Industrial Metals")
+with st.container(border=True):
+    st.markdown("### 🌐 Overall Outlook")
+    st.success(metals_overall)
+
+    st.markdown("### 📊 Key Indicators")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        with st.container(border=True):
+                st.markdown("#### 🟠 Copper")
+                st.markdown(f"## {current_copper:,.2f} USD/lb")
+                st.markdown(f"**{copper_trend}**")
+
+                if st.button(
+                            "Analyze",
+                            key="copper_button",
+                            use_container_width=True
+                        ):
+                        st.session_state.metals_selected = "Copper"
+
+    with col2:
+        with st.container(border=True):
+                st.markdown("#### ⚫ Iron Ore")
+                st.markdown(f"## {current_iron:,.2f} USD/dmt")
+                st.markdown(f"**{iron_trend}**")
+
+                if st.button(
+                            "Analyze",
+                            key="iron_button",
+                            use_container_width=True
+                        ):
+                        st.session_state.metals_selected = "Iron"
+
+    with col3:
+            with st.container(border=True):
+                    st.markdown("#### 🟢 Nickel")
+                    st.markdown(f"## {current_nickel:,.2f} USD/MT")
+                    st.markdown(f"**{nickel_trend}**")
+    
+                    if st.button(
+                                "Analyze",
+                                key="nickel_button",
+                                use_container_width=True
+                            ):
+                            st.session_state.metals_selected = "Nickel"
+    
+    st.markdown("### 📝 Summary")
+    st.info(metals_summary)
+
+# DETAIL ANALYSIS INDUSTRIAL METALS
+# ------------------------------------
+
+selected_metals = st.session_state.metals_selected
+if selected_metals == "Copper":
+        st.subheader("🟠 Copper")
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric(
+                "Current Copper (USD/lb)",
+                f"{current_copper:,.2f}"
+            )
+        with col2:
+            st.metric(
+                "Peak Copper (5Y)-(USD/lb)",
+                f"{peak_copper:,.2f}"
+            )
+        with col3:
+            st.metric(
+                "Last Change (USD/lb)",
+                f"{copper_change:,.2f}"
+            )
+        with col4:
+            st.metric(
+                "Trend",
+                copper_trend
+            )
+
+        fig = create_line_chart(
+                copper_price,
+                "Copper",
+                "Price (USD/lb)"
+            )
+        
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+        st.caption("Source: Yahoo Finance (yfinance)")
+
+elif selected_metals == "Iron":
+        st.subheader("⚫ Iron Ore")
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric(
+                "Current Iron (USD/dmt)",
+                f"{current_iron:,.2f}"
+            )
+        with col2:
+            st.metric(
+                "Peak Iron (5Y)-(USD/dmt)",
+                f"{peak_iron:,.2f}"
+            )
+        with col3:
+            st.metric(
+                "Last Change (USD/dmt)",
+                f"{iron_change:,.2f}"
+            )
+        with col4:
+            st.metric(
+                "Trend",
+                iron_trend
+            )
+
+        fig_iron = go.Figure()
+
+        fig_iron.add_trace(
+            go.Scatter(
+                x=iron_price["Date"],
+                y=iron_price["Value"],
+                mode="lines",
+                name="Iron Ore"
+            )
+        )
+
+        fig_iron.update_layout(
+            template="plotly_dark",
+            height=500,
+            xaxis_title="Date",
+            yaxis_title="Price (USD/dmt)",
+            margin=dict(
+                l=20,
+                r=20,
+                t=20,
+                b=20
+            )
+        )
+
+        st.plotly_chart(
+            fig_iron,
+            use_container_width=True
+        )
+
+        st.caption("Source: macro_dataset.xlsx")
+
 else:
-    status = "🟡 Neutral"
+        st.subheader("🟢 Nickel")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric(
+                "Current Nickel (USD/MT)",
+                f"{current_nickel:,.2f}"
+           )
+        with col2:
+            st.metric(
+                "Peak Nickel (5Y)-(USD/MT)",
+                f"{peak_nickel:,.2f}"
+           )
+        with col3:
+            st.metric(
+                "Last Change (USD/MT)",
+                f"{nickel_change:,.2f}"
+           )
+        with col4:
+            st.metric(
+                "Trend",
+                nickel_trend
+           )
 
-col1, col2, col3, col4 = st.columns(4)
+        fig_nickle = go.Figure()
 
-with col1:
-    st.metric(
-        "Current PMI",
-        current_us_pmi
-    )
+        fig_nickle.add_trace(
+            go.Scatter(
+                x=nickel_price["Date"],
+                y=nickel_price["Value"],
+                mode="lines",
+                name="Nickle"
+            )
+        )
 
-with col2:
-    st.metric(
-        "Previous PMI",
-        prev_us_pmi
-    )
+        fig_nickle.update_layout(
+            template="plotly_dark",
+            height=500,
+            xaxis_title="Date",
+            yaxis_title="Price (USD/MT)",
+            margin=dict(
+                l=20,
+                r=20,
+                t=20,
+                b=20
+            )
+        )
 
-with col3:
-    st.metric(
-        "Monthly Change",
-        f"{us_pmi_change:.2f}"
-    )
+        st.plotly_chart(
+            fig_nickle,
+            use_container_width=True
+        )
 
-with col4:
-    st.metric(
-        "Status",
-        status
-    )
-
-fig = go.Figure()
-fig.add_trace(
-    go.Scatter(
-        x=us_pmi["Date"],
-        y=us_pmi["Value"],
-        mode="lines",
-        name="US PMI"
-    )
-)
-
-fig.update_layout(
-    height=500,
-    template="plotly_dark",
-    xaxis_title="Date",
-    yaxis_title="PMI Value",
-    margin=dict(
-        l=20,
-        r=20,
-        t=20,
-        b=20
-    )
-)
-
-fig.update_xaxes(
-    dtick="M1",
-    tickformat="%b %Y",
-    tickangle=0
-)
-
-fig.add_hline(
-    y=50,
-    line_dash="dash",
-    line_color="yellow",
-    annotation_text="PMI = 50",
-)
-
-st.plotly_chart(
-    fig,
-    use_container_width=True
-)
-
-st.caption("Source: Institute for Supply Management (ISM)")
-
-# ============================================================================================================
-# Copper
-# ============================================================================================================
+        st.caption("Source: macro_dataset.xlsx")
 
 st.divider()
-st.subheader("🟠 Copper Futures")
-
-copper_price = get_copper()
-
-current_copper, previous_copper, copper_change = get_latest_metric(copper_price)
-peak_copper = float(copper_price.max())
-copper_trend = get_trend(copper_change)
-
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(
-        "Current Copper",
-        f"{current_copper:.2f}"
-    )
-
-with col2:
-    st.metric(
-        "Peak Copper (5Y)",
-        f"{peak_copper:.2f}"
-    )
-
-with col3:
-    st.metric(
-        "Last Change",
-        f"{copper_change:.2f}"
-    )
-
-with col4:
-    st.metric(
-        "Trend",
-        copper_trend
-    )
-
-fig_copper = go.Figure()
-
-fig_copper.add_trace(
-    go.Scatter(
-        x=copper_price.index,
-        y=copper_price,
-        mode="lines",
-        name="Copper"
-    )
-)
-
-fig_copper.update_layout(
-    template="plotly_dark",
-    height=500,
-    xaxis_title="Date",
-    yaxis_title="Price (USD/lb)",
-    margin=dict(
-        l=20,
-        r=20,
-        t=20,
-        b=20
-    )
-)
-
-st.plotly_chart(
-    fig_copper,
-    use_container_width=True
-)
-
-st.caption("Source: Yahoo Finance (yfinance)")
-
-# ============================================================================================================
-# Iron ore
-# ============================================================================================================
-
-st.divider()
-st.subheader("🟠 Iron Ore")
-
-iron_price = get_iron()
-
-current_iron, previous_iron, iron_change = get_latest_metric(iron_price["Value"])
-peak_iron = float(iron_price["Value"].max())
-iron_trend = get_trend(iron_change)
-
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(
-        "Current iron",
-        f"{current_iron:.2f}"
-    )
-
-with col2:
-    st.metric(
-        "Peak iron (5Y)",
-        f"{peak_iron:.2f}"
-    )
-
-with col3:
-    st.metric(
-        "Last Change",
-        f"{iron_change:.2f}"
-    )
-
-with col4:
-    st.metric(
-        "Trend",
-        iron_trend
-    )
-
-fig_iron = go.Figure()
-
-fig_iron.add_trace(
-    go.Scatter(
-        x=iron_price["Date"],
-        y=iron_price["Value"],
-        mode="lines",
-        name="Iron Ore"
-    )
-)
-
-fig_iron.update_layout(
-    template="plotly_dark",
-    height=500,
-    xaxis_title="Date",
-    yaxis_title="Price (USD/dmt)",
-    margin=dict(
-        l=20,
-        r=20,
-        t=20,
-        b=20
-    )
-)
-
-st.plotly_chart(
-    fig_iron,
-    use_container_width=True
-)
-
-st.caption("Source: macro_dataset.xlsx")
-
-# ============================================================================================================
-# Nickle
-# ============================================================================================================
-
-st.divider()
-st.subheader("🟠 Nickle")
-
-nickle_price = get_nickel()
-
-current_nickle, previous_nickle, nickle_change = get_latest_metric(nickle_price["Value"])
-peak_nickle = float(nickle_price["Value"].max())
-nickle_trend = get_trend(nickle_change)
-
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(
-        "Current nickle",
-        f"{current_nickle:.2f}"
-    )
-
-with col2:
-    st.metric(
-        "Peak nickle (5Y)",
-        f"{peak_nickle:.2f}"
-    )
-
-with col3:
-    st.metric(
-        "Last Change",
-        f"{nickle_change:.2f}"
-    )
-
-with col4:
-    st.metric(
-        "Trend",
-        nickle_trend
-    )
-
-fig_nickle = go.Figure()
-
-fig_nickle.add_trace(
-    go.Scatter(
-        x=nickle_price["Date"],
-        y=nickle_price["Value"],
-        mode="lines",
-        name="Nickle"
-    )
-)
-
-fig_nickle.update_layout(
-    template="plotly_dark",
-    height=500,
-    xaxis_title="Date",
-    yaxis_title="Price (USD/MT)",
-    margin=dict(
-        l=20,
-        r=20,
-        t=20,
-        b=20
-    )
-)
-
-st.plotly_chart(
-    fig_nickle,
-    use_container_width=True
-)
-
-st.caption("Source: macro_dataset.xlsx")
 
 # ============================================================================================================
 # Oil
